@@ -6,4 +6,5 @@ Exact numerical solution of the ground state of the one dimensional anharmonic L
 * Thrust vectors and algorithms.
 
 Compile with:
-nvcc  -arch=sm_75 alm.cu --extended-lambda -o a.out -DANHN=2 -DSIZEL=1024
+
+<nvcc  -arch=sm_75 alm.cu --extended-lambda -o a.out -DANHN=2 -DSIZEL=1024>
