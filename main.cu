@@ -88,11 +88,25 @@ int main(int argc, char **argv) {
     thrust::transform(f.begin(), f.end(), f.begin(),
                       [=] __host__ __device__ (real x) { return x - mean_f; });    
 
+    // recompute total force (important patch!)
+    real fsum = thrust::reduce(f.begin(), f.end(), 0.0f);
+
     // -----------------------------
     // Prefix sum: cumulative force
     // -----------------------------
     thrust::device_vector<real> F(L);
     thrust::exclusive_scan(f.begin(), f.end(), F.begin());
+
+    // subtract linear drift using a lambda (important patch!)
+    real invL = real(1) / real(L);
+    thrust::transform(
+        F.begin(), F.end(),
+        thrust::counting_iterator<int>(0),
+        F.begin(),
+        [=] __host__ __device__ (real Fi, int i) {
+            return Fi - fsum * real(i) * invL;
+        }
+    );
 
     // -----------------------------
     // Find C by scalar root-finding
