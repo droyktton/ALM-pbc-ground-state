@@ -84,6 +84,9 @@ int main(int argc, char **argv) {
         f.begin(),
         gaussian_rng{seed}
     );
+    real mean_f = thrust::reduce(f.begin(), f.end(), 0.0f) / L;
+    thrust::transform(f.begin(), f.end(), f.begin(),
+                      [=] __host__ __device__ (real x) { return x - mean_f; });    
 
     // -----------------------------
     // Prefix sum: cumulative force
