@@ -84,12 +84,12 @@ int main(int argc, char **argv) {
         f.begin(),
         gaussian_rng{seed}
     );
-    real mean_f = thrust::reduce(f.begin(), f.end(), 0.0f) / L;
+    real mean_f = thrust::reduce(f.begin(), f.end(), real(0.0)) / L;
     thrust::transform(f.begin(), f.end(), f.begin(),
                       [=] __host__ __device__ (real x) { return x - mean_f; });    
 
     // recompute total force (important patch!)
-    real fsum = thrust::reduce(f.begin(), f.end(), 0.0f);
+    real fsum = thrust::reduce(f.begin(), f.end(), real(0.0));
 
     // -----------------------------
     // Prefix sum: cumulative force
@@ -141,11 +141,11 @@ int main(int argc, char **argv) {
     thrust::device_vector<real> u(L);
     thrust::exclusive_scan(s.begin(), s.end(), u.begin());
 
-    real mean_u = thrust::reduce(u.begin(), u.end(), 0.0f) / L;
+    real mean_u = thrust::reduce(u.begin(), u.end(), real(0.0)) / L;
     thrust::transform(u.begin(), u.end(), u.begin(),
                       [=] __host__ __device__ (real x) { return x - mean_u; });
 
-    real mean_s = thrust::reduce(s.begin(), s.end(), 0.0f) / L;
+    real mean_s = thrust::reduce(s.begin(), s.end(), real(0.0)) / L;
     std::cout << "Check periodicity (sum s): " << mean_s << std::endl;
 
     // Print first 10 elements of u
