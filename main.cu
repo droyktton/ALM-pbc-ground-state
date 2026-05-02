@@ -52,14 +52,14 @@ struct slope_functor {
         real sigma = F + C;
 
         if (c == 0.0f) {
-            return copysignf(powf(fabsf(sigma), 1.0f/(2.0f*n-1.0f)), sigma);
+            return copysign(pow(fabs(sigma), 1.0f/(2.0f*n-1.0f)), sigma);
         }
 
         // Newton iteration (few steps, monotonic)
         real s = sigma / (c + 1.0f);
         for (int k=0; k<8; k++) {
-            real g  = c*s + copysignf(powf(fabsf(s),2*n-1), s) - sigma;
-            real gp = c + (2*n-1)*powf(fabsf(s),2*n-2);
+            real g  = c*s + copysign(pow(fabs(s),2*n-1), s) - sigma;
+            real gp = c + (2*n-1)*powf(fabs(s),2*n-2);
             s -= g/gp;
         }
         return s;
