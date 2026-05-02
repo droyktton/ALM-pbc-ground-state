@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
         real S = thrust::transform_reduce(
             F.begin(), F.end(),
             slope_functor{C},
-            0.0f,
+            real(0.0),
             thrust::plus<real>()
         );
 
