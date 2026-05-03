@@ -11,6 +11,8 @@
 #include <cmath>
 #include <iostream>
 #include <fstream>
+#include <Random123/philox.h>
+#include <Random123/boxmuller.hpp>
 
 #ifndef ANHN
 #define ANHN 2
@@ -30,7 +32,7 @@ const real c = 0.0f;   // set c=0 for closed form
 // -----------------------------
 // Gaussian disorder
 // -----------------------------
-struct gaussian_rng {
+/*struct gaussian_rng {
     unsigned int seed;
     __host__ __device__
     real operator()(unsigned int i) const {
@@ -38,6 +40,31 @@ struct gaussian_rng {
         rng.discard(i);
         thrust::normal_distribution<real> dist(0.0f, sqrt(Delta));
         return dist(rng);
+    }
+};*/
+
+struct gaussian_rng {
+    unsigned long long seed;
+
+    __host__ __device__
+    real operator()(unsigned int i) const {
+        using namespace r123;
+
+        // Counter-based RNG
+        philox4x32_key_t k = {{ (uint32_t)seed, (uint32_t)(seed >> 32) }};
+        philox4x32_ctr_t c = {{ i, 0, 0, 0 }};
+
+        philox4x32_ctr_t r = philox4x32(c, k);
+
+        // Convert to uniform (0,1)
+        real u1 = (r.v[0] + 0.5) * (1.0 / 4294967296.0);
+        real u2 = (r.v[1] + 0.5) * (1.0 / 4294967296.0);
+
+        // Box-Muller transform → Gaussian
+        real z0, z1;
+        r123::boxmuller(u1, u2, z0, z1);
+
+        return z0 * sqrt(Delta);
     }
 };
 
