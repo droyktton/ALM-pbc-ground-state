@@ -30,6 +30,7 @@ const int L = SIZEL;
 const real Delta = 1.0;
 const real n = ANHN;
 const real c = 0;   // set c=0 for closed form
+#define PUREANHARMONIC
 
 // -----------------------------
 // Gaussian disorder
@@ -76,10 +77,11 @@ struct slope_functor {
     real operator()(real F) const {
         real sigma = F + C;
 
-        if (c == 0.0) {
+        #ifdef PUREANHARMONIC
+        //if (c == 0.0) {
             return copysign(pow(fabs(sigma), 1.0/(2.0*n-1.0)), sigma);
-        }
-
+        //}
+        #else
         // Newton iteration (few steps, monotonic)
         real s = sigma / (c + 1.0);
         for (int k=0; k<8; k++) {
@@ -88,6 +90,7 @@ struct slope_functor {
             s -= g/gp;
         }
         return s;
+        #endif
     }
 };
 
