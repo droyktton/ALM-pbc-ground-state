@@ -27,7 +27,7 @@ typedef double real;
 const int L = SIZEL;
 const real Delta = 1.0f;
 const real n = ANHN;
-const real c = 0.0f;   // set c=0 for closed form
+const real c = 0.0;   // set c=0 for closed form
 
 // -----------------------------
 // Gaussian disorder
