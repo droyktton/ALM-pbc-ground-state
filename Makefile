@@ -3,7 +3,7 @@ CXX = nvcc
 ANHN?=2
 SIZEL?=1024
 
-INCLUDES = -I/opt/nvidia/hpc_sdk/Linux_x86_64/23.7/math_libs/12.2/include 
+INCLUDES = -I/opt/nvidia/hpc_sdk/Linux_x86_64/23.7/math_libs/12.2/include -I./external/
 FLAGS = --expt-extended-lambda -lcufft -std=c++17 -arch=sm_75 \
 -gencode arch=compute_61,code=sm_61 -gencode arch=compute_80,code=sm_80 -gencode arch=compute_75,code=sm_75 \
 
