@@ -36,7 +36,7 @@ struct gaussian_rng {
     real operator()(unsigned int i) const {
         thrust::default_random_engine rng(seed);
         rng.discard(i);
-        thrust::normal_distribution<real> dist(0.0f, sqrtf(Delta));
+        thrust::normal_distribution<real> dist(0.0f, sqrt(Delta));
         return dist(rng);
     }
 };
@@ -52,7 +52,7 @@ struct slope_functor {
         real sigma = F + C;
 
         if (c == 0.0f) {
-            return copysign(pow(fabs(sigma), 1.0f/(2.0f*n-1.0f)), sigma);
+            return copysign(pow(fabs(sigma), 1.0/(2.0f*n-1.0)), sigma);
         }
 
         // Newton iteration (few steps, monotonic)
@@ -111,10 +111,10 @@ int main(int argc, char **argv) {
     // -----------------------------
     // Find C by scalar root-finding
     // -----------------------------
-    real C_lo = -50.0f, C_hi = 50.0f, C = 0.0f;
+    real C_lo = -50.0, C_hi = 50.0, C = 0.0;
 
     for (int it=0; it<40; it++) {
-        C = 0.5f*(C_lo + C_hi);
+        C = 0.5*(C_lo + C_hi);
 
         real S = thrust::transform_reduce(
             F.begin(), F.end(),
