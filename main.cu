@@ -122,7 +122,7 @@ int main(int argc, char **argv) {
     thrust::exclusive_scan(f.begin(), f.end(), F.begin());
 
     // subtract linear drift using a lambda (important patch!)
-    /*real invL = real(1) / real(L);
+    real invL = real(1) / real(L);
     thrust::transform(
         F.begin(), F.end(),
         thrust::counting_iterator<int>(0),
@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
         [=] __host__ __device__ (real Fi, int i) {
             return Fi - fsum * real(i) * invL;
         }
-    );*/
+    );
 
     // -----------------------------
     // Find C by scalar root-finding
