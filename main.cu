@@ -1,5 +1,6 @@
 // !nvcc  -arch=sm_75 alm.cu --extended-lambda -o a.out -DANHN=2 -DSIZEL=1024
 
+
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/transform.h>
@@ -11,6 +12,7 @@
 #include <cmath>
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 #include <Random123/philox.h>
 #include <Random123/boxmuller.hpp>
 
@@ -25,9 +27,9 @@
 typedef double real;
 
 const int L = SIZEL;
-const real Delta = 1.0f;
+const real Delta = 1.0;
 const real n = ANHN;
-const real c = 0.0f;   // set c=0 for closed form
+const real c = 0;   // set c=0 for closed form
 
 // -----------------------------
 // Gaussian disorder
@@ -38,7 +40,7 @@ const real c = 0.0f;   // set c=0 for closed form
     real operator()(unsigned int i) const {
         thrust::default_random_engine rng(seed);
         rng.discard(i);
-        thrust::normal_distribution<real> dist(0.0f, sqrt(Delta));
+        thrust::normal_distribution<real> dist(real(0.0), sqrt(Delta));
         return dist(rng);
     }
 };*/
@@ -74,15 +76,15 @@ struct slope_functor {
     real operator()(real F) const {
         real sigma = F + C;
 
-        if (c == 0.0f) {
-            return copysign(pow(fabs(sigma), 1.0/(2.0f*n-1.0)), sigma);
+        if (c == 0.0) {
+            return copysign(pow(fabs(sigma), 1.0/(2.0*n-1.0)), sigma);
         }
 
         // Newton iteration (few steps, monotonic)
-        real s = sigma / (c + 1.0f);
+        real s = sigma / (c + 1.0);
         for (int k=0; k<8; k++) {
             real g  = c*s + copysign(pow(fabs(s),2*n-1), s) - sigma;
-            real gp = c + (2*n-1)*powf(fabs(s),2*n-2);
+            real gp = c + (2*n-1)*pow(fabs(s),2*n-2);
             s -= g/gp;
         }
         return s;
@@ -136,14 +138,14 @@ int main(int argc, char **argv) {
     // Find C by scalar root-finding
     // -----------------------------
 
-    real maxF = thrust::transform_reduce(
+    /*real maxF = thrust::transform_reduce(
     	F.begin(), F.end(),
     	[] __host__ __device__ (real x) { return fabs(x); },
     	real(0.0),
     	thrust::maximum<real>()
     );
-
-    real C_lo = -maxF, C_hi = maxF, C = 0.0;
+    real C_lo = -maxF, C_hi = maxF, C = 0.0;*/
+    real C_lo = -50, C_hi = 50, C = 0.0;
 
     for (int it=0; it<40; it++) {
         C = 0.5*(C_lo + C_hi);
@@ -191,6 +193,7 @@ int main(int argc, char **argv) {
     std::cout << "]" << std::endl;
 
     std::ofstream fout("u.txt");
+    fout << std::setprecision(15);     
     for (int i = 0; i < L; ++i) {
         fout << u[i] << std::endl;
     }
