@@ -1,5 +1,6 @@
 // !nvcc  -arch=sm_75 alm.cu --extended-lambda -o a.out -DANHN=2 -DSIZEL=1024
 
+
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/transform.h>
@@ -11,6 +12,7 @@
 #include <cmath>
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 #include <Random123/philox.h>
 #include <Random123/boxmuller.hpp>
 
