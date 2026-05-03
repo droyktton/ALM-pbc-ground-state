@@ -50,21 +50,17 @@ struct gaussian_rng {
     real operator()(unsigned int i) const {
         using namespace r123;
 
-        // Counter-based RNG
         philox4x32_key_t k = {{ (uint32_t)seed, (uint32_t)(seed >> 32) }};
         philox4x32_ctr_t c = {{ i, 0, 0, 0 }};
-
         philox4x32_ctr_t r = philox4x32(c, k);
 
-        // Convert to uniform (0,1)
         real u1 = (r.v[0] + 0.5) * (1.0 / 4294967296.0);
         real u2 = (r.v[1] + 0.5) * (1.0 / 4294967296.0);
 
-        // Box-Muller transform → Gaussian
-        real z0, z1;
-        r123::boxmuller(u1, u2, z0, z1);
+        real R = sqrt(-2.0 * log(u1));
+        real theta = 2.0 * M_PI * u2;
 
-        return z0 * sqrt(Delta);
+        return R * cos(theta) * sqrt(Delta);
     }
 };
 
