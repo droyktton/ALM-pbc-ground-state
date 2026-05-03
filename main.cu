@@ -142,8 +142,8 @@ int main(int argc, char **argv) {
     	real(0.0),
     	thrust::maximum<real>()
     );
-
     real C_lo = -maxF, C_hi = maxF, C = 0.0;
+    //real C_lo = -50, C_hi = 50, C = 0.0;
 
     for (int it=0; it<40; it++) {
         C = 0.5*(C_lo + C_hi);
