@@ -191,6 +191,7 @@ int main(int argc, char **argv) {
     std::cout << "]" << std::endl;
 
     std::ofstream fout("u.txt");
+    fout << std::setprecision(15);     
     for (int i = 0; i < L; ++i) {
         fout << u[i] << std::endl;
     }
