@@ -118,10 +118,11 @@ int main(int argc, char **argv) {
     // Prefix sum: cumulative force
     // -----------------------------
     thrust::device_vector<real> F(L);
+
     thrust::exclusive_scan(f.begin(), f.end(), F.begin());
 
     // subtract linear drift using a lambda (important patch!)
-    real invL = real(1) / real(L);
+    /*real invL = real(1) / real(L);
     thrust::transform(
         F.begin(), F.end(),
         thrust::counting_iterator<int>(0),
@@ -129,12 +130,20 @@ int main(int argc, char **argv) {
         [=] __host__ __device__ (real Fi, int i) {
             return Fi - fsum * real(i) * invL;
         }
-    );
+    );*/
 
     // -----------------------------
     // Find C by scalar root-finding
     // -----------------------------
-    real C_lo = -50.0, C_hi = 50.0, C = 0.0;
+
+    real maxF = thrust::transform_reduce(
+    	F.begin(), F.end(),
+    	[] __host__ __device__ (real x) { return fabs(x); },
+    	real(0.0),
+    	thrust::maximum<real>()
+    );
+
+    real C_lo = -maxF, C_hi = maxF, C = 0.0;
 
     for (int it=0; it<40; it++) {
         C = 0.5*(C_lo + C_hi);
