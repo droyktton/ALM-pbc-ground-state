@@ -3,11 +3,12 @@ CXX = nvcc
 ANHN?=2
 SIZEL?=1024
 
-INCLUDES = -I/opt/nvidia/hpc_sdk/Linux_x86_64/23.7/math_libs/12.2/include -I./external/random123/include/
+INCLUDES = -I/opt/nvidia/hpc_sdk/Linux_x86_64/23.7/math_libs/12.2/include -I./external/random123/include/ -I/localhome/spack/instalaciones/linux-westmere/cuda-11.1.0-z/include/
 FLAGS = --expt-extended-lambda -lcufft -std=c++17 -arch=sm_75 \
 -gencode arch=compute_61,code=sm_61 -gencode arch=compute_80,code=sm_80 -gencode arch=compute_75,code=sm_75 \
+-U__SIZEOF_INT128__
 
-LDFLAGS = -L/opt/nvidia/hpc_sdk/Linux_x86_64/23.7/math_libs/12.2/lib64 
+LDFLAGS = -L/opt/nvidia/hpc_sdk/Linux_x86_64/23.7/math_libs/12.2/lib64 -L/localhome/spack/instalaciones/linux-westmere/cuda-11.1.0-z/lib64/
 
 PARAMS = -DANHN=$(ANHN) -DSIZEL=$(SIZEL)
 

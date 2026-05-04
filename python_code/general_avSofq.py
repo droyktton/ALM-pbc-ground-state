@@ -4,7 +4,7 @@
 import numpy as np
 import glob
 
-def compute_S_avg(L=None, ANH=None, base_pattern="sample_L={L}_ANH={ANH}_seed=*/u.txt"):
+def compute_S_avg(L=None, ANH=None, base_pattern="L{L}_ANH{ANH}_seed*/u.txt"):
     pattern = base_pattern.format(L=L, ANH=ANH)
     files = sorted(glob.glob(pattern))
     if not files:
