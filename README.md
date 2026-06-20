@@ -1,13 +1,13 @@
 # Anharmonic Larkin Model (ALM)
 
-We consider a one-dimensional elastic interface described by a displacement field $u_i$ on a periodic lattice of size $L$.
+We consider a one-dimensional elastic interface described by a displacement field $u_i$ on a *periodic* lattice of size $L$.
 
 The local slope is
 
 $$s_i = u_{i+1} - u_i.$$
 
 ## Hamiltonian
-
+https://github.com/droyktton/ALM-pbc-ground-state/edit/main/README.md
 The Anharmonic Larkin Model is defined by
 
 $$H[u]=\sum_{i=0}^{L-1}\left[\frac{c}{2}s_i^2+\frac{1}{2n}|s_i|^{2n}-f_i u_i\right],$$
