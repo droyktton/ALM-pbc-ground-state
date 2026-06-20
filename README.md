@@ -12,8 +12,7 @@ $$
 
 The Anharmonic Larkin Model is defined by
 
-$$
-H[u] =
+$$H[u] =
 \sum_{i=0}^{L-1}
 \left[
 \frac{c}{2}s_i^2
@@ -21,8 +20,7 @@ H[u] =
 \frac{1}{2n}|s_i|^{2n}
 -
 f_i u_i
-\right],
-$$
+\right],$$
 
 where:
 - $c \ge 0$ is the harmonic elastic constant
