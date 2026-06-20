@@ -4,9 +4,7 @@ We consider a one-dimensional elastic interface described by a displacement fiel
 
 The local slope is
 
-$$
-s_i = u_{i+1} - u_i.
-$$
+$$s_i = u_{i+1} - u_i.$$
 
 ## Hamiltonian
 
