@@ -158,29 +158,17 @@ Thus $G(C)$ is strictly monotonic and has a unique root.
 
 1. Generate disorder $f_i \sim \mathcal{N}(0,\Delta)$  
 2. Enforce zero mean:
-   $$
-   f_i \leftarrow f_i - \frac{1}{L}\sum_j f_j
-   $$
+   $$f_i \leftarrow f_i - \frac{1}{L}\sum_j f_j$$
 3. Compute cumulative force:
-   $$
-   F_i = \sum_{j<i} f_j
-   $$
+   $$F_i = \sum_{j<i} f_j$$
 4. Solve:
-   $$
-   \sum_i s(F_i + C) = 0
-   $$
+   $$\sum_i s(F_i + C) = 0$$
 5. Compute slopes:
-   $$
-   s_i = s(F_i + C)
-   $$
+   $$s_i = s(F_i + C)$$
 6. Reconstruct interface:
-   $$
-   u_i = \sum_{j<i} s_j
-   $$
+   $$u_i = \sum_{j<i} s_j$$
 7. Remove mean height:
-   $$
-   u_i \leftarrow u_i - \frac{1}{L}\sum_j u_j
-   $$
+   $$u_i \leftarrow u_i - \frac{1}{L}\sum_j u_j$$
 
 ---
 
