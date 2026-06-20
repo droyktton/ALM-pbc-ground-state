@@ -10,15 +10,7 @@ $$s_i = u_{i+1} - u_i.$$
 
 The Anharmonic Larkin Model is defined by
 
-$$H[u] =
-\sum_{i=0}^{L-1}
-\left[
-\frac{c}{2}s_i^2
-+
-\frac{1}{2n}|s_i|^{2n}
--
-f_i u_i
-\right],$$
+$$H[u]=\sum_{i=0}^{L-1}\left[\frac{c}{2}s_i^2+\frac{1}{2n}|s_i|^{2n}-f_i u_i\right],$$
 
 where:
 - $c \ge 0$ is the harmonic elastic constant
