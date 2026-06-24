@@ -3,11 +3,21 @@
 #SBATCH --array=0-99           # 100 tasks
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=4G
+#SBATCH --mem=1G
 #SBATCH --time=02:00:00
 #SBATCH --output=logs/alm_%A_%a.out
 
-SEEDS_PER_TASK=10              # 100 tasks × 10 seeds = 1000 total samples
+# Directorio de trabajo (equivalente a -cwd)
+#SBATCH --chdir=.
+
+# Exportar variables de entorno
+#SBATCH --export=ALL
+
+#Cola/partición
+#SBATCH --partition=knl_tacc
+
+
+SEEDS_PER_TASK=100              # 100 tasks × 100 seeds = 10000 total samples
 SEED_START=$(( SLURM_ARRAY_TASK_ID * SEEDS_PER_TASK ))
 SEED_END=$(( SEED_START + SEEDS_PER_TASK ))
 
@@ -22,3 +32,5 @@ python alm_sim_sample.py \
     --n_min      2 \
     --n_max      50 \
     --outdir     results
+
+
