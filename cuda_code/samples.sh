@@ -1,11 +1,11 @@
 for a in 2 4 6 8 10 12 14 16 18 20
 do
-	for L in 1024 #2048 4096 8192
+	for L in 4096 #512 #1024 #2048 4096 8192
 	do
 		make clean
 		make SIZEL=$L ANHN=$a
 
-		for((s=42;s<92;s++))
+		for((s=42;s<52;s++))
 		do			
 			dir="L"$L"_ANH"$a"_seed"$s			
 
