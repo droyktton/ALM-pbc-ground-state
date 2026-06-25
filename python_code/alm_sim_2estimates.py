@@ -45,7 +45,7 @@ def generate_sample(L, Delta, n, c, seed):
 # Parameters
 L       = 8192
 Delta   = 1.0
-c       = 0
+c       = 0.0
 nsamples = 50
 
 # Precompute frequency arrays (same for all n)
@@ -53,10 +53,13 @@ q         = np.fft.fftfreq(L, d=1)
 qpos      = q[q > 0]
 fit_mask  = qpos < 0.01
 log_q_fit = np.log(qpos[fit_mask])
+fit_mask2  = qpos < 0.005
+log_q_fit2 = np.log(qpos[fit_mask2])
 
 # Output arrays
 narray           = []
 zetaarray        = []   # zeta from averaged S(q)
+zetaarray2       = []   # zeta from averaged S(q) with stricter fit
 zeta_mean_array  = []   # mean of per-sample zeta
 zeta_std_array   = []   # std error of per-sample zeta mean
 
@@ -65,7 +68,7 @@ n_plot_values = [2, 4, 8, 16]
 sq_avg_store  = {}   # n -> averaged S(q) (positive freqs only)
 fit_store     = {}   # n -> (zeta_avg_sq, zeta_mean, fit slope B from avg S(q))
 
-for n in range(2, 51):
+for n in n_plot_values: #range(2, 3):
     print(f"Processing n={n}...")
 
     sq      = np.zeros(L)
@@ -92,9 +95,14 @@ for n in range(2, 51):
         # --- Method 1: fit from averaged S(q) ---
         sq_avg   = sq / valid
         sqpos_avg = sq_avg[q > 0]
+        
         log_sq_avg = np.log(sqpos_avg[fit_mask])
         coeffs = np.polyfit(log_q_fit, log_sq_avg, 1)
         zeta_from_avg_sq = -(coeffs[0] + 1) / 2.0
+        
+        log_sq_avg2 = np.log(sqpos_avg[fit_mask2])
+        coeffs2 = np.polyfit(log_q_fit2, log_sq_avg2, 1)
+        zeta_from_avg_sq2 = -(coeffs2[0] + 1) / 2.0
 
         # --- Method 2: average of per-sample zeta ---
         zeta_arr  = np.array(zeta_samples)
@@ -103,6 +111,7 @@ for n in range(2, 51):
 
         narray.append(n)
         zetaarray.append(zeta_from_avg_sq)
+        zetaarray2.append(zeta_from_avg_sq2)
         zeta_mean_array.append(zeta_mean)
         zeta_std_array.append(zeta_std)
 
@@ -115,21 +124,22 @@ for n in range(2, 51):
 
 narray_np      = np.array(narray)
 zetaarray_np   = np.array(zetaarray)
+zetaarray2_np  = np.array(zetaarray2)
 zeta_mean_np   = np.array(zeta_mean_array)
 zeta_std_np    = np.array(zeta_std_array)
 zeta_theoretical = (4. * narray_np - 1) / (4. * narray_np - 2)
 
 # 1) Save data with high numerical precision
-data_to_save = np.column_stack((narray_np, zetaarray_np, zeta_mean_np, zeta_std_np))
+data_to_save = np.column_stack((narray_np, zetaarray_np, zetaarray2_np, zeta_mean_np, zeta_std_np))
 np.savetxt('zeta_results.txt', data_to_save,
-           header='n  zeta_from_avg_sq  zeta_mean_samples  zeta_std_samples',
-           fmt=['%d', '%.18e', '%.18e', '%.18e'], comments='')
+           header='n  zeta_from_avg_sq  zeta_from_avg_sq2  zeta_mean_samples  zeta_std_samples',
+           fmt=['%d', '%.18e', '%.18e', '%.18e', '%.18e'], comments='')
 
 # 2) Plot 1: Both zeta estimates + theoretical
 plt.figure(figsize=(10, 6))
 plt.plot(narray_np, zetaarray_np,
          marker='o', linestyle='-', color='steelblue',
-         label=r'$\zeta$ from $\langle S(q) \rangle$')
+         label=r'$\zeta$ from $\langle S(q) \rangle$')         
 plt.errorbar(narray_np, zeta_mean_np, yerr=zeta_std_np,
              marker='s', linestyle='--', color='darkorange', capsize=3,
              label=r'$\langle \zeta \rangle$ from individual $S(q)$')
@@ -148,15 +158,22 @@ plt.close()
 plt.figure(figsize=(10, 6))
 residuals_avg = zetaarray_np - zeta_theoretical
 residuals_mean = zeta_mean_np - zeta_theoretical
+residuals_avg2 = zetaarray2_np - zeta_theoretical
+
 plt.plot(narray_np, residuals_avg,
          marker='o', linestyle='-', color='steelblue',
-         label=r'$\zeta$ from $\langle S(q) \rangle$')
+         label=r'$\zeta_s$ from $\langle S(q) \rangle$')
+plt.plot(narray_np, residuals_avg2,
+         marker='^', linestyle='-', color='green',
+         label=r'$\zeta_s$ from $\langle S(q) \rangle$ (stricter fit)')         
 plt.errorbar(narray_np, residuals_mean, yerr=zeta_std_np,
              marker='s', linestyle='--', color='darkorange', capsize=3,
-             label=r'$\langle \zeta \rangle$ from individual $S(q)$')
+             label=r'$\langle \zeta_s \rangle$ from individual $S(q)$')
 plt.axhline(0, color='black', linestyle='--')
+plt.axhline(0.25, color='red', linestyle='--')
+
 plt.xlabel('n')
-plt.ylabel(r'Residual ($\zeta - \zeta_s$)')
+plt.ylabel(r'Residual ($\zeta_s - \zeta$)')
 plt.title('Residuals: Numerical vs Theoretical Prediction')
 plt.legend()
 plt.grid(True)
@@ -169,7 +186,7 @@ plt.errorbar(narray_np, zeta_mean_np - zetaarray_np, yerr=zeta_std_np,
              marker='o', linestyle='-', color='purple', capsize=3)
 plt.axhline(0, color='black', linestyle='--')
 plt.xlabel('n')
-plt.ylabel(r'$\langle \zeta \rangle_{\rm samples} - \zeta[\langle S(q) \rangle]$')
+plt.ylabel(r'$\langle \zeta_s \rangle_{\rm samples} - \zeta_s[\langle S(q) \rangle]$')
 plt.title('Difference between the two estimators')
 plt.grid(True)
 plt.savefig('zeta_comparison.png', dpi=150)
@@ -195,9 +212,9 @@ for ax, n_val in zip(axes, n_plot_values):
                               np.log10(q_fit_range.max() * 2.0), 200)
     sq_fit      = np.exp(A) * q_ext**B
     ax.loglog(q_ext, sq_fit, color='red', linewidth=2, linestyle='--',
-              label=(rf'Fit $\langle S(q)\rangle$: $\zeta={zeta_avg:.3f}$' + '\n' +
-                     rf'$\langle\zeta\rangle_\mathrm{{samples}}={zeta_mean:.3f}$' + '\n' +
-                     rf'Theory: $\zeta_s={zeta_th:.3f}$'))
+              label=(rf'Fit $\langle S(q)\rangle$: $\zeta_s={zeta_avg:.3f}$' + '\n' +
+                     rf'$\langle\zeta_s\rangle_\mathrm{{samples}}={zeta_mean:.3f}$' + '\n' +
+                     rf'Theory: $\zeta={zeta_th:.3f}$'))
 
     # Shade the fit region
     ax.axvspan(q_fit_range.min(), q_fit_range.max(),
