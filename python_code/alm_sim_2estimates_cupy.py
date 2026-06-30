@@ -1,3 +1,6 @@
+import os
+os.environ["CUPY_ACCELERATORS"] = ""
+
 import cupy as cp
 import numpy as np
 import matplotlib.pyplot as plt
