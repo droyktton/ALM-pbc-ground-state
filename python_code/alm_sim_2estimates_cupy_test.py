@@ -18,11 +18,11 @@ parser.add_argument(
 args = parser.parse_args()
 
 # ── parameters ──────────────────────────────────────────────
-L        = args.length  # Captured from command line
+L        = args.length  
 Delta    = 1.0
-c        = 0.0          # must be 0 for full GPU path
-nsamples = 20          # GPU makes large nsamples cheap
-n_min, n_max = 2, 20
+c        = 0.0          
+nsamples = 20          
+n_min, n_max = 2, 16
 FIT_QMAX = 0.01
 FIT_QMIN = 2.0*np.pi/L
 tolerance_periodicity = 1e-8
@@ -30,11 +30,7 @@ tolerance_periodicity = 1e-8
 
 
 def slopes_gpu(F_batch, n):
-    """
-    Constant memory footprint bisection solver.
-    """
     exp = 1.0 / (2*n - 1)
-
     sigma = cp.empty_like(F_batch)
     s     = cp.empty_like(F_batch)
 
@@ -78,6 +74,7 @@ log_q    = np.log(qpos_np[fit_mask])
 n_values       = list(range(n_min, n_max + 1))
 narray         = []
 zeta_avg_sq    = []
+zeta_avg_std_arr = []  # <--- Store Method 1 Errors
 zeta_mean_arr  = []
 zeta_std_arr   = []
 sq_avg_store   = {}
@@ -97,49 +94,51 @@ F_cpu = np.concatenate([np.zeros((nsamples, 1)),
 F_batch = cp.asarray(F_cpu)
 
 for n in n_values:
-    print(f"n = {n} ...", end=' ', flush=True)
+    print(f"n = {n} ... ", end='', flush=True)
 
-    # 1. Run bisection on GPU
     u_batch_gpu, periodicity_gpu = slopes_gpu(F_batch, n)
 
-    # 2. IMMEDIATELY pull outputs to CPU and free GPU pointers
     u_batch_np     = cp.asnumpy(u_batch_gpu)
     periodicity_np = cp.asnumpy(periodicity_gpu)
     
     del u_batch_gpu, periodicity_gpu
     cp.get_default_memory_pool().free_all_blocks()
 
-    # 3. All masking, slicing, and FFT math happens safely on CPU RAM
     valid_mask = np.abs(periodicity_np) < tolerance_periodicity
     n_valid    = int(valid_mask.sum())
     u_valid    = u_batch_np[valid_mask]
 
-    # Compute S(q) on CPU via numpy
     Uq        = np.fft.rfft(u_valid, axis=1)
     sq_all_np = (np.abs(Uq)**2)[:, 1:]
 
-    # Method 1: fit averaged S(q)
+    # ─── Method 1: fit averaged S(q) + analytical error propagation ───
     sq_avg_np = sq_all_np.mean(axis=0)
+    sq_std_np = sq_all_np.std(axis=0, ddof=1)
+    
     B, A      = np.polyfit(log_q, np.log(sq_avg_np[fit_mask]), 1)
     zeta_avg  = -(B + 1) / 2.0
 
-    # Method 2: per-sample zeta (Vectorized to avoid long loops!)
+    sq_sem_np  = sq_std_np / np.sqrt(n_valid)
+    y_err      = sq_sem_np[fit_mask] / sq_avg_np[fit_mask]
+    log_q_mean = np.mean(log_q)
+    log_q_dev  = log_q - log_q_mean
+    var_q      = np.sum(log_q_dev**2)
+    c_i        = log_q_dev / var_q
+    B_err        = np.sqrt(np.sum((c_i**2) * (y_err**2)))
+    zeta_avg_std = B_err / 2.0
+
+    # ─── Method 2: per-sample zeta (Vectorized) ───
     log_sq_mask = np.log(sq_all_np[:, fit_mask])
-    log_q_mean  = np.mean(log_q)
-    log_q_dev   = log_q - log_q_mean
-    var_q       = np.sum(log_q_dev**2)
-    
-    # Vectorized analytical least-squares slope computation
     b_samples    = np.sum(log_q_dev * (log_sq_mask - np.mean(log_sq_mask, axis=1, keepdims=True)), axis=1) / var_q
     zeta_arr     = -(b_samples + 1) / 2.0
     zeta_mean    = zeta_arr.mean()
     zeta_std     = zeta_arr.std(ddof=1) / np.sqrt(n_valid)
 
-    print(f"valid={n_valid}, zeta_avg={zeta_avg:.4f}, theory={(4*n-1)/(4*n-2):.4f}, difference={zeta_avg - (4*n-1)/(4*n-2):.4e}, zeta_mean={zeta_mean:.4f}, zeta_std={zeta_std:.4e}, difference={zeta_mean - (4*n-1)/(4*n-2):.4e}")
-
+    print(f"valid={n_valid}, zeta_avg={zeta_avg:.4f}±{zeta_avg_std:.2e}, theory={(4*n-1)/(4*n-2):.4f}, zeta_mean={zeta_mean:.4f}±{zeta_std:.2e}")
 
     narray.append(n)
     zeta_avg_sq.append(zeta_avg)
+    zeta_avg_std_arr.append(zeta_avg_std)
     zeta_mean_arr.append(zeta_mean)
     zeta_std_arr.append(zeta_std)
 
@@ -147,29 +146,30 @@ for n in n_values:
         sq_avg_store[n] = sq_avg_np
         fit_store[n]    = (zeta_avg, zeta_mean, B, A)
 
-# ── save & plot (remains identical) ───────────────────
-narray_np    = np.array(narray)
-zeta_avg_np  = np.array(zeta_avg_sq)
-zeta_mean_np = np.array(zeta_mean_arr)
-zeta_std_np  = np.array(zeta_std_arr)
-zeta_th      = (4.*narray_np - 1) / (4.*narray_np - 2)
+# ── save & plot ─────────────────────────────────────────────
+narray_np       = np.array(narray)
+zeta_avg_np     = np.array(zeta_avg_sq)
+zeta_avg_std_np = np.array(zeta_avg_std_arr)
+zeta_mean_np    = np.array(zeta_mean_arr)
+zeta_std_np     = np.array(zeta_std_arr)
+zeta_th         = (4.*narray_np - 1) / (4.*narray_np - 2)
 
 np.savetxt('zeta_results.txt',
-           np.column_stack((narray_np, zeta_avg_np, zeta_mean_np, zeta_std_np)),
-           header='n  zeta_avg_sq  zeta_mean_samples  zeta_std_samples',
-           fmt=['%d','%.18e','%.18e','%.18e'], comments='')
+           np.column_stack((narray_np, zeta_avg_np, zeta_avg_std_np, zeta_mean_np, zeta_std_np)),
+           header='n  zeta_avg_sq  zeta_avg_std  zeta_mean_samples  zeta_std_samples',
+           fmt=['%d','%.18e','%.18e','%.18e','%.18e'], comments='')
 
 # Plot zeta vs n
 plt.figure(figsize=(10,6))
-plt.plot(narray_np, zeta_avg_np, 'o-', color='steelblue', label=r'$\zeta$ from $\langle S(q)\rangle$')
+plt.errorbar(narray_np, zeta_avg_np, yerr=zeta_avg_std_np, fmt='o-', color='steelblue', capsize=3, label=r'$\zeta$ from $\langle S(q)\rangle$')
 plt.errorbar(narray_np, zeta_mean_np, yerr=zeta_std_np, fmt='s--', color='darkorange', capsize=3, label=r'$\langle\zeta\rangle$ from individual $S(q)$')
 plt.plot(narray_np, zeta_th, '--r', label=r'Global $\zeta=(4n-1)/(4n-2)$')
 plt.xlabel('n'); plt.ylabel(r'$\zeta$'); plt.legend(); plt.grid()
 plt.savefig('zeta_vs_n.png', dpi=150); plt.close()
 
-# Plot residuals and differences
+# Plot residuals
 plt.figure(figsize=(10,6))
-plt.plot(narray_np, zeta_avg_np - zeta_th, 'o-', color='steelblue', label=r'$\zeta[\langle S(q)\rangle]$')
+plt.errorbar(narray_np, zeta_avg_np - zeta_th, yerr=zeta_avg_std_np, fmt='o-', color='steelblue', capsize=3, label=r'$\zeta[\langle S(q)\rangle]$')
 plt.errorbar(narray_np, zeta_mean_np - zeta_th, yerr=zeta_std_np, fmt='s--', color='darkorange', capsize=3, label=r'$\langle \zeta[S(q)]\rangle$')
 plt.axhline(0, color='k', ls='--')
 plt.xlabel('n'); plt.ylabel(r'$\zeta - \zeta_s$')
@@ -178,7 +178,8 @@ plt.savefig('zeta_residuals.png', dpi=150); plt.close()
 
 # Plot difference between estimators
 plt.figure(figsize=(10,6))
-plt.errorbar(narray_np, zeta_mean_np - zeta_avg_np, yerr=zeta_std_np, fmt='o-', color='purple', capsize=3)
+combined_err = np.sqrt(zeta_mean_np**2 + zeta_avg_std_np**2)
+plt.errorbar(narray_np, zeta_mean_np - zeta_avg_np, yerr=combined_err, fmt='o-', color='purple', capsize=3)
 plt.axhline(0, color='k', ls='--')
 plt.xlabel('n'); plt.ylabel(r'$\langle\zeta\rangle_\mathrm{samples} - \zeta[\langle S(q)\rangle]$')
 plt.title('Difference between estimators'); plt.grid()
