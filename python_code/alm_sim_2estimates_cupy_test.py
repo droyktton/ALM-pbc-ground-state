@@ -1,19 +1,33 @@
 import os
 os.environ["CUPY_ACCELERATORS"] = ""
 
+import sys
+import argparse
 import cupy as cp
 import numpy as np
 import matplotlib.pyplot as plt
 
+# ── Parse Command Line Arguments ────────────────────────────
+parser = argparse.ArgumentParser(description="Run ALM simulation for a given system size L.")
+parser.add_argument(
+    "-L", "--length", 
+    type=int, 
+    default=131072, 
+    help="System size L (must be a power of 2 for optimal FFT performance). Default: 131072"
+)
+args = parser.parse_args()
+
 # ── parameters ──────────────────────────────────────────────
-L        = 1048576
+L        = args.length  # Captured from command line
 Delta    = 1.0
 c        = 0.0          # must be 0 for full GPU path
-nsamples = 100          # GPU makes large nsamples cheap
+nsamples = 20          # GPU makes large nsamples cheap
 n_min, n_max = 2, 20
 FIT_QMAX = 0.01
-tolerance_periodicity = 1e-6
+FIT_QMIN = 2.0*np.pi/L
+tolerance_periodicity = 1e-8
 # ────────────────────────────────────────────────────────────
+
 
 def slopes_gpu(F_batch, n):
     """
@@ -34,7 +48,7 @@ def slopes_gpu(F_batch, n):
 
     lo = cp.full(nsamples, -1e4)
     hi = cp.full(nsamples,  1e4)
-    for _ in range(60):
+    for _ in range(70):
         mid  = (lo + hi) / 2.0
         fmid = total_slope_batch(mid)
         neg  = fmid < 0
@@ -56,9 +70,9 @@ def slopes_gpu(F_batch, n):
     return u, periodicity
 
 # ── frequency arrays ────────────────────────────────────────
-q_np     = np.fft.rfftfreq(L, d=1)
+q_np     = 2.0 * np.pi * np.fft.rfftfreq(L, d=1)
 qpos_np  = q_np[1:]
-fit_mask = qpos_np < FIT_QMAX
+fit_mask = (qpos_np >= FIT_QMIN) & (qpos_np < FIT_QMAX)
 log_q    = np.log(qpos_np[fit_mask])
 
 n_values       = list(range(n_min, n_max + 1))
@@ -121,7 +135,8 @@ for n in n_values:
     zeta_mean    = zeta_arr.mean()
     zeta_std     = zeta_arr.std(ddof=1) / np.sqrt(n_valid)
 
-    print(f"valid={n_valid}, zeta_avg={zeta_avg:.4f}, theory={(4*n-1)/(4*n-2):.4f}, difference={zeta_avg - (4*n-1)/(4*n-2):.4e}")
+    print(f"valid={n_valid}, zeta_avg={zeta_avg:.4f}, theory={(4*n-1)/(4*n-2):.4f}, difference={zeta_avg - (4*n-1)/(4*n-2):.4e}, zeta_mean={zeta_mean:.4f}, zeta_std={zeta_std:.4e}, difference={zeta_mean - (4*n-1)/(4*n-2):.4e}")
+
 
     narray.append(n)
     zeta_avg_sq.append(zeta_avg)
@@ -144,21 +159,24 @@ np.savetxt('zeta_results.txt',
            header='n  zeta_avg_sq  zeta_mean_samples  zeta_std_samples',
            fmt=['%d','%.18e','%.18e','%.18e'], comments='')
 
+# Plot zeta vs n
 plt.figure(figsize=(10,6))
 plt.plot(narray_np, zeta_avg_np, 'o-', color='steelblue', label=r'$\zeta$ from $\langle S(q)\rangle$')
 plt.errorbar(narray_np, zeta_mean_np, yerr=zeta_std_np, fmt='s--', color='darkorange', capsize=3, label=r'$\langle\zeta\rangle$ from individual $S(q)$')
-plt.plot(narray_np, zeta_th, '--r', label=r'Theory $\zeta_s=(4n-1)/(4n-2)$')
+plt.plot(narray_np, zeta_th, '--r', label=r'Global $\zeta=(4n-1)/(4n-2)$')
 plt.xlabel('n'); plt.ylabel(r'$\zeta$'); plt.legend(); plt.grid()
 plt.savefig('zeta_vs_n.png', dpi=150); plt.close()
 
+# Plot residuals and differences
 plt.figure(figsize=(10,6))
 plt.plot(narray_np, zeta_avg_np - zeta_th, 'o-', color='steelblue', label=r'$\zeta[\langle S(q)\rangle]$')
-plt.errorbar(narray_np, zeta_mean_np - zeta_th, yerr=zeta_std_np, fmt='s--', color='darkorange', capsize=3)
+plt.errorbar(narray_np, zeta_mean_np - zeta_th, yerr=zeta_std_np, fmt='s--', color='darkorange', capsize=3, label=r'$\langle \zeta[S(q)]\rangle$')
 plt.axhline(0, color='k', ls='--')
 plt.xlabel('n'); plt.ylabel(r'$\zeta - \zeta_s$')
 plt.title('Residuals'); plt.legend(); plt.grid()
 plt.savefig('zeta_residuals.png', dpi=150); plt.close()
 
+# Plot difference between estimators
 plt.figure(figsize=(10,6))
 plt.errorbar(narray_np, zeta_mean_np - zeta_avg_np, yerr=zeta_std_np, fmt='o-', color='purple', capsize=3)
 plt.axhline(0, color='k', ls='--')
@@ -166,6 +184,7 @@ plt.xlabel('n'); plt.ylabel(r'$\langle\zeta\rangle_\mathrm{samples} - \zeta[\lan
 plt.title('Difference between estimators'); plt.grid()
 plt.savefig('zeta_comparison.png', dpi=150); plt.close()
 
+# Plot S(q) for selected n values
 fig, axes = plt.subplots(2, 2, figsize=(12,9))
 for ax, n_val in zip(axes.flatten(), n_plot_values):
     if n_val not in sq_avg_store:
