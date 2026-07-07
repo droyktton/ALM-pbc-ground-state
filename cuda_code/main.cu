@@ -15,6 +15,9 @@
 #include <iomanip>
 #include <Random123/philox.h>
 #include <Random123/boxmuller.hpp>
+#include <sstream>
+#include <cstdint>
+
 
 #ifndef ANHN
 #define ANHN 2
@@ -26,11 +29,12 @@
 
 typedef double real;
 
-const int L = SIZEL;
+//const int L = SIZEL;
+int L;
 const real Delta = 1.0;
 const real n = ANHN;
 const real c = 0;   // set c=0 for closed form
-#define PUREANHARMONIC
+//#define PUREANHARMONIC
 
 // -----------------------------
 // Gaussian disorder
@@ -95,12 +99,18 @@ struct slope_functor {
 };
 
 
-int main(int argc, char **argv) {
-
-    unsigned seed = 1;
-    if (argc > 1) {
-        seed = atoi(argv[1]);
+int main(int argc, char **argv)
+{
+    if (argc < 4) {
+        std::cerr << "Usage: "
+                  << argv[0]
+                  << " L seed output_directory\n";
+        return 1;
     }
+
+    const int L = std::atoi(argv[1]);
+    unsigned seed = std::atoi(argv[2]);
+    std::string outdir = argv[3];
 
     // -----------------------------
     // Disorder
@@ -113,10 +123,13 @@ int main(int argc, char **argv) {
         gaussian_rng{seed}
     );
     real mean_f = thrust::reduce(f.begin(), f.end(), real(0.0)) / L;
+    
     thrust::transform(f.begin(), f.end(), f.begin(),
                       [=] __host__ __device__ (real x) { return x - mean_f; });    
 
-    // recompute total force (important patch!)
+
+    // Remove the tiny linear drift caused by floating-point roundoff.
+    // This enforces F(L)=F(0) exactly after the prefix sum.
     real fsum = thrust::reduce(f.begin(), f.end(), real(0.0));
 
     // -----------------------------
@@ -147,8 +160,11 @@ int main(int argc, char **argv) {
     	real(0.0),
     	thrust::maximum<real>()
     );
+
+    
     real C_lo = -maxF, C_hi = maxF, C = 0.0;*/
-    real C_lo = -50, C_hi = 50, C = 0.0;
+    
+    /*real C_lo = -50, C_hi = 50, C = 0.0;
 
     for (int it=0; it<40; it++) {
         C = 0.5*(C_lo + C_hi);
@@ -163,6 +179,51 @@ int main(int argc, char **argv) {
         if (S > 0) C_hi = C;
         else       C_lo = C;
     }
+    */
+
+
+
+///////////////////////// Boundary search for C such that sum(slope_functor(F[i] + C)) = 0
+    auto compute_S = [&](real C)
+    {
+        return thrust::transform_reduce(
+            F.begin(), F.end(),
+            slope_functor{C},
+            real(0.0),
+            thrust::plus<real>()
+        );
+    };
+
+    real C_lo = -1.0;
+    real C_hi = 1.0;
+
+    real S_lo = compute_S(C_lo);
+    real S_hi = compute_S(C_hi);
+
+    while (S_lo > 0.0) {
+        C_lo *= 2.0;
+        S_lo = compute_S(C_lo);
+    }
+
+    while (S_hi < 0.0) {
+        C_hi *= 2.0;
+        S_hi = compute_S(C_hi);
+    }
+
+    for (int it = 0; it < 40; ++it) {
+        real C_mid = 0.5 * (C_lo + C_hi);
+        real S_mid = compute_S(C_mid);
+
+        if (S_mid > 0.0) {
+            C_hi = C_mid;
+        } else {
+            C_lo = C_mid;
+        }
+    }
+
+    real C = 0.5 * (C_lo + C_hi);
+/////////////////////////
+
 
     std::cout << "C = " << C << std::endl;
 
@@ -195,14 +256,54 @@ int main(int argc, char **argv) {
     }
     std::cout << "]" << std::endl;
 
+    thrust::host_vector<real> h_u(u);
+    
+    #ifndef BINARYOUTPUT
     std::ofstream fout("u.txt");
     fout << std::setprecision(15);     
     for (int i = 0; i < L; ++i) {
-        fout << u[i] << std::endl;
+        fout << h_u[i] << std::endl;
     }
+    fout.close();
+    #else
+    std::ostringstream name;
+    name << outdir
+        << "/u_"
+        << std::setw(8)
+        << std::setfill('0')
+        << seed
+        << ".bin";
+
+    // Header
+    struct Header {
+        uint32_t magic;      // file identifier
+        uint32_t version;    // format version
+        uint64_t L;
+        uint64_t seed;
+        double Delta;
+        double n;
+        double c;
+    };
+
+    Header hdr;
+    hdr.magic   = 0x414C4D31;   // "ALM1"
+    hdr.version = 1;
+    hdr.L       = L;
+    hdr.seed    = seed;
+    hdr.Delta   = Delta;
+    hdr.n       = n;
+    hdr.c       = c;
+
+    std::ofstream fout(name.str(), std::ios::binary);
+
+    fout.write(reinterpret_cast<const char*>(&hdr), sizeof(Header));
+    fout.write(reinterpret_cast<const char*>(h_u.data()),
+            sizeof(real) * L);
+
+    fout.close();
+    #endif
 
     std::cout << "Done." << std::endl;
-
     std::cout << "n=" << n << ", c=" << c << std::endl;
     std::cout << "L=" << L << ", Delta=" << Delta << std::endl;
     std::cout << "seed=" << seed << std::endl;
