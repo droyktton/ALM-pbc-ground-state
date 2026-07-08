@@ -32,7 +32,8 @@ typedef double real;
 //const int L = SIZEL;
 int L;
 const real Delta = 1.0;
-const real n = ANHN;
+//const real n = ANHN;
+real n;
 const real c = 0;   // set c=0 for closed form
 //#define PUREANHARMONIC
 
@@ -71,11 +72,27 @@ struct gaussian_rng {
     }
 };
 
+struct uniform_rng {
+    unsigned long long seed;
+
+    __host__ __device__
+    real operator()(unsigned int i) const {
+        using namespace r123;
+
+        philox4x32_key_t k = {{ (uint32_t)seed, (uint32_t)(seed >> 32) }};
+        philox4x32_ctr_t c = {{ i, 0, 0, 0 }};
+        philox4x32_ctr_t r = philox4x32(c, k);
+
+        return (r.v[0] + 0.5) * (1.0 / 4294967296.0);
+    }
+};
+
 // -----------------------------
 // Constitutive law
 // -----------------------------
 struct slope_functor {
     real C;
+    real n;
 
     __host__ __device__
     real operator()(real F) const {
@@ -101,27 +118,38 @@ struct slope_functor {
 
 int main(int argc, char **argv)
 {
-    if (argc < 4) {
+    if (argc < 5) {
         std::cerr << "Usage: "
                   << argv[0]
-                  << " L seed output_directory\n";
+                  << " L n seed output_directory\n";
         return 1;
     }
 
     const int L = std::atoi(argv[1]);
-    unsigned seed = std::atoi(argv[2]);
-    std::string outdir = argv[3];
-
+    const real n = std::atof(argv[2]);
+    unsigned seed = std::atoi(argv[3]);
+    std::string outdir = argv[4];
+    
     // -----------------------------
     // Disorder
     // -----------------------------
     thrust::device_vector<real> f(L);
+    #ifndef UNIFORMDISORDER    
     thrust::transform(
         thrust::counting_iterator<unsigned int>(0),
         thrust::counting_iterator<unsigned int>(L),
         f.begin(),
         gaussian_rng{seed}
     );
+    #else
+    thrust::transform(
+        thrust::counting_iterator<unsigned int>(0),
+        thrust::counting_iterator<unsigned int>(L),
+        f.begin(),
+        uniform_rng{seed}
+    );
+    #endif
+        
     real mean_f = thrust::reduce(f.begin(), f.end(), real(0.0)) / L;
     
     thrust::transform(f.begin(), f.end(), f.begin(),
@@ -231,7 +259,7 @@ int main(int argc, char **argv)
     // Final slopes
     // -----------------------------
     thrust::device_vector<real> s(L);
-    thrust::transform(F.begin(), F.end(), s.begin(), slope_functor{C});
+    thrust::transform(F.begin(), F.end(), s.begin(), slope_functor{C, n});
 
     // -----------------------------
     // Reconstruct u
@@ -302,6 +330,11 @@ int main(int argc, char **argv)
 
     fout.close();
     #endif
+
+    std::string namelog = outdir + "/log.txt";
+    std::ofstream log(namelog, std::ios::app);
+    log << "L=" << L << ", n=" << n << ", seed=" << seed << ", Delta=" << Delta << ", c=" << c << std::endl;
+    log.close();
 
     std::cout << "Done." << std::endl;
     std::cout << "n=" << n << ", c=" << c << std::endl;

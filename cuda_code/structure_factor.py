@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 
 import glob
@@ -104,13 +105,15 @@ Sq = Sq[1:]
 # Fit
 # --------------------------------------------------
 
-#qmin = 2*np.pi*imin/L
-#qmax = 2*np.pi*imax/L
+qmin = 2*np.pi*imin/L
+qmax = 2*np.pi*imax/L
+qmax = 0.01
+mask = (q>=qmin)&(q<=qmax)
 
 # Fit interval for zeta
-qmin_fit = 0.01
-qmax_fit = 0.1
-mask = (q>=qmin_fit)&(q<=qmax_fit)
+#qmin_fit = 0.01
+#qmax_fit = 0.1
+#mask = (q>=qmin_fit)&(q<=qmax_fit)
 
 if mask.sum() < 3:
     raise RuntimeError("Fit interval contains too few points.")
@@ -138,10 +141,10 @@ print(f"Delta          : {Delta}")
 print(f"n              : {n}")
 print(f"c              : {c}")
 print("------------------------------------------")
-print(f"Fit modes      : {qmin_fit} ... {qmax_fit}")
+print(f"Fit modes      : {qmin} ... {qmax}")
 print(f"Slope          : {m:12.6f} ± {fit.stderr:.3e}")
 print(f"zeta           : {zeta:12.6f} ± {zeta_err:.3e}")
-print(f"zeta-(4n-2)/(4n-1)           : {zeta-(4*n-1)/(4*n-2):12.6f} ± {zeta_err:.3e}")
+print(f"zeta-(4n-1)/(4n-2)           : {zeta-(4*n-1)/(4*n-2):12.6f} ± {zeta_err:.3e}")
 print(f"R²             : {fit.rvalue**2:.6f}")
 print("==========================================")
 
@@ -150,12 +153,14 @@ print("==========================================")
 # Machine-readable fit summary
 # --------------------------------------------------
 
+dzeta=zeta-(4*n-1)/(4*n-2)
 with open("fit.dat", "w") as f:
     f.write(
         f"{L:d} "
         f"{zeta:.10f} "
         f"{zeta_err:.10e} "
-        f"{fit.rvalue**2:.10f}\n"
+        f"{fit.rvalue**2:.10f} "
+        f"{dzeta:.10f}\n"
     )
 
 # --------------------------------------------------
@@ -190,8 +195,8 @@ plt.loglog(
     label=rf"Fit: $\zeta={zeta:.3f}$"
 )
 
-plt.axvline(qmin_fit, color="gray", ls="--", lw=1)
-plt.axvline(qmax_fit, color="gray", ls="--", lw=1)
+plt.axvline(qmin, color="gray", ls="--", lw=1)
+plt.axvline(qmax, color="gray", ls="--", lw=1)
 
 plt.xlabel(r"$q$")
 plt.ylabel(r"$S(q)$")

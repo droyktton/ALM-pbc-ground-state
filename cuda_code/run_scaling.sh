@@ -4,14 +4,14 @@
 # Parameters
 ####################################################
 
-NSAMPLES=20
+NSAMPLES=10
 
-FITMIN=2
+n=3.0
+
+FITMIN=1
 FITMAX=20
 
 LSIZES=(
-1024
-2048
 4096
 8192
 16384
@@ -21,10 +21,10 @@ LSIZES=(
 262144
 524288
 1048576
-#2097152
-#4194304
-#8388608
-#16777216
+2097152
+4194304
+8388608
+16777216
 )
 
 ####################################################
@@ -62,7 +62,7 @@ do
             continue
         fi
 
-        ./solver "$L" "$seed" "$DIR"
+        ./solver "$L" "$n" "$seed" "$DIR" 
 
     done
 
@@ -92,7 +92,7 @@ python3 << EOF
 import numpy as np
 import matplotlib.pyplot as plt
 
-L,z,e,r = np.loadtxt("zeta_vs_L.dat", unpack=True)
+L,z,e,r,dzeta = np.loadtxt("zeta_vs_L.dat", unpack=True)
 
 plt.figure(figsize=(6,4))
 
