@@ -77,19 +77,56 @@ def w2_from_S(q, S, L):
     return total / L
 
 
-def fit_zeta_s(q, S, q_frac_max=0.15):
+def fit_zeta_s(q, S, q_frac_max=0.15, q_min=None, q_max=None, kmin=None, kmax=None):
     """
-    Fit S(q) ~ q^{-(1+2*zeta_s)} over the small-q tail via log-log
-    linear regression. Returns zeta_s, its standard error, and the
-    full regression result.
+    Fit S(q) ~ q^{-(1+2*zeta_s)} via log-log linear regression.
+
+    The fit window can be specified three ways (checked in this priority
+    order):
+      1. kmin/kmax   : explicit mode-index bounds (1-based, inclusive of kmin,
+                        exclusive of kmax+1) -- use this to hold a *fixed
+                        absolute q-window* across different L, for finite-size
+                        scans (q = 2*pi*k/L, so fixing k bounds while L varies
+                        actually changes the physical q-window -- to fix the
+                        physical window across L, use q_min/q_max instead).
+      2. q_min/q_max : explicit absolute q bounds -- the natural choice for
+                        finite-size scans: pick one physical q-window and use
+                        the *same* q_min, q_max regardless of L.
+      3. q_frac_max  : (default/back-compat) fraction of the L//2 available
+                        modes, starting from k=1. Note the resulting q_max is
+                        ~ pi * q_frac_max, independent of L, but q_min is
+                        always 2*pi/L -- i.e. this does NOT hold a fixed
+                        window across L on the IR side.
+
+    Returns zeta_s, its standard error, the full regression result, and the
+    (idx_min, idx_max) slice actually used (for plotting / bookkeeping).
     """
-    n_fit = max(4, int(len(q) * q_frac_max))
-    log_q = np.log(q[:n_fit])
-    log_S = np.log(S[:n_fit])
+    if kmin is not None or kmax is not None:
+        idx_min = 0 if kmin is None else (kmin - 1)
+        idx_max = len(q) if kmax is None else kmax
+    elif q_min is not None or q_max is not None:
+        idx_min = 0 if q_min is None else int(np.searchsorted(q, q_min, side="left"))
+        idx_max = len(q) if q_max is None else int(np.searchsorted(q, q_max, side="right"))
+    else:
+        idx_min = 0
+        idx_max = max(4, int(len(q) * q_frac_max))
+
+    idx_min = max(0, idx_min)
+    idx_max = min(len(q), idx_max)
+    if idx_max - idx_min < 4:
+        raise ValueError(
+            f"Fit window too narrow ({idx_max - idx_min} points, q range "
+            f"[{q[idx_min] if idx_min < len(q) else float('nan')}, "
+            f"{q[idx_max-1] if idx_max > 0 else float('nan')}]); "
+            f"need at least 4 points. Widen q_min/q_max, kmin/kmax, or qfrac."
+        )
+
+    log_q = np.log(q[idx_min:idx_max])
+    log_S = np.log(S[idx_min:idx_max])
     res = linregress(log_q, log_S)
     zeta_s = -(res.slope + 1) / 2
     zeta_s_err = res.stderr / 2
-    return zeta_s, zeta_s_err, res
+    return zeta_s, zeta_s_err, res, (idx_min, idx_max)
 
 
 def main():
@@ -108,7 +145,21 @@ def main():
     parser.add_argument("--samples", type=int, default=200,
                         help="Number of disorder realizations to average over (default: 200).")
     parser.add_argument("--qfrac", type=float, default=0.15,
-                        help="Fraction of low-q modes used for the power-law fit (default: 0.15).")
+                        help="Fraction of low-q modes used for the power-law fit "
+                             "(default: 0.15). Ignored if --qmin/--qmax or "
+                             "--kmin/--kmax are given.")
+    parser.add_argument("--qmin", type=float, default=None,
+                        help="Absolute lower bound of the fit window in q. "
+                             "Use together with --qmax to fix the SAME physical "
+                             "q-window across different L (recommended for "
+                             "finite-size scans).")
+    parser.add_argument("--qmax", type=float, default=None,
+                        help="Absolute upper bound of the fit window in q.")
+    parser.add_argument("--kmin", type=int, default=None,
+                        help="Mode-index lower bound (1-based) of the fit window. "
+                             "Overrides --qmin/--qmax/--qfrac if given.")
+    parser.add_argument("--kmax", type=int, default=None,
+                        help="Mode-index upper bound (inclusive) of the fit window.")
     parser.add_argument("--seed", type=int, default=0,
                         help="Random seed (default: 0).")
     parser.add_argument("-o", "--output", type=str, default=None,
@@ -135,7 +186,13 @@ def main():
     q, S, W2_direct = structure_factor_average(args.L, args.c, args.n, args.delta, args.samples, rng)
     print(f"done in {time.time() - t0:.2f} s")
 
-    zeta_s, zeta_s_err, res = fit_zeta_s(q, S, q_frac_max=args.qfrac)
+    zeta_s, zeta_s_err, res, (idx_min, idx_max) = fit_zeta_s(
+        q, S, q_frac_max=args.qfrac, q_min=args.qmin, q_max=args.qmax,
+        kmin=args.kmin, kmax=args.kmax,
+    )
+    print(f"fit window: k in [{idx_min + 1}, {idx_max}]  "
+          f"(q in [{q[idx_min]:.6g}, {q[idx_max - 1]:.6g}]), "
+          f"{idx_max - idx_min} modes")
     print(f"fitted small-q slope   = {res.slope:.4f} +/- {res.stderr:.4f}")
     print(f"spectral roughness zeta_s = {zeta_s:.4f} +/- {zeta_s_err:.4f}")
     print(f"R^2 of log-log fit     = {res.rvalue**2:.5f}")
@@ -150,7 +207,9 @@ def main():
     # Format: key=value pairs, space-separated, no spaces within a value.
     print(f"RESULT L={args.L} n={args.n} c={args.c} delta={args.delta} "
           f"samples={args.samples} zeta_s={zeta_s:.6f} zeta_s_err={zeta_s_err:.6f} "
-          f"W2_direct={W2_direct:.6f} W2_parseval={W2_parseval:.6f}")
+          f"W2_direct={W2_direct:.6f} W2_parseval={W2_parseval:.6f} "
+          f"qmin_fit={q[idx_min]:.6g} qmax_fit={q[idx_max - 1]:.6g} "
+          f"kmin_fit={idx_min + 1} kmax_fit={idx_max}")
 
     if args.csv:
         np.savetxt(args.csv, np.column_stack([q, S]), delimiter=",",
@@ -166,8 +225,7 @@ def main():
         fig, ax = plt.subplots(figsize=(7, 6))
         ax.loglog(q, S, '.', ms=3, alpha=0.5, color="#1f77b4", label="data (disorder avg.)")
 
-        n_fit = max(4, int(len(q) * args.qfrac))
-        q_fit = q[:n_fit]
+        q_fit = q[idx_min:idx_max]
         S_fit_line = np.exp(res.intercept) * q_fit ** res.slope
         ax.loglog(q_fit, S_fit_line, 'r-', lw=2,
                   label=fr"fit: $\zeta_s={zeta_s:.3f}\pm{zeta_s_err:.3f}$")
