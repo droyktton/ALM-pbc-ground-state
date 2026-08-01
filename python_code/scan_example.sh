@@ -5,13 +5,13 @@
 OUTFILE="scan_results.csv"
 echo "L,n,c,delta,samples,zeta_s,zeta_s_err,W2_direct,W2_parseval" > "$OUTFILE"
 
-for n in 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 2.0 3.0 4.0 5.0 10.0; do
-    for L in 4096 8192 16384 32768 65536 131072; do
+for n in 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 2.0 3.0 4.0 5.0 10.0; do
+    for L in 1024 2048 4096 8192; do
     
-        nsamples=$(echo "512*4096/$L" | bc)  # Number of samples to average over for each (L,n) pair
+        nsamples=$(echo "1024*1024/$L" | bc)  # Number of samples to average over for each (L,n) pair
         
         # Run the tool, capture full stdout, skip plotting/showing to keep it fast
-        output=$(python3 run_structure_factor.py -L "$L" -n "$n" --samples $nsamples --qmin 0.001 --qmax 0.1 --no-plot)
+        output=$(python3 run_structure_factor.py -L "$L" -n "$n" --samples $nsamples --qmin 0.001 --qmax 0.1 -c 0.0 --no-plot)
     
         # Grab the single machine-readable line and turn it into a CSV row.
         # The RESULT line looks like:
