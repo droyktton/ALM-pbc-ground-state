@@ -116,7 +116,8 @@ def main():
     if args.zeta_s_L is not None:
         Ls_to_plot = [args.zeta_s_L]
     else:
-        Ls_to_plot = sorted(df["L"].unique())
+        #Ls_to_plot = sorted(df["L"].unique())
+        Ls_to_plot = [L for L in sorted(df["L"].unique()) if L > 2048 and L < 200000000]  # skip the smallest and largest L's for clarity
 
     xcol = args.xaxis  # "p" or "n"
 

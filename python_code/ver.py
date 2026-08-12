@@ -49,7 +49,7 @@ ax.errorbar(
     df_fit["n"],
     df_fit["zeta_fit"],
     yerr=df_fit["zeta_fit_err"],
-    marker="S",
+    marker="s",
     color="black",
     linewidth=2.5,
     markersize=8,
