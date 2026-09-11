@@ -5,11 +5,11 @@
 OUTFILE="scan_results.csv"
 echo "L,n,c,delta,samples,zeta_s,zeta_s_err,W2_direct,W2_parseval" > "$OUTFILE"
 
-for n in 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 2.0 3.0 4.0 5.0 10.0; do
+for n in 0.7 0.75 0.8 0.85 0.9 1.0 1.1 1.2 1.3 1.4 1.5 2.0 3.0 4.0 5.0 6.0 10.0; do
     #for L in 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288; do
-    for L in 1024 2048 4096 8192 16384; do
+    for L in 1024 2048 4096 8192 16384 32768 65536; do
     
-        nsamples=$(echo "1024*32768/$L" | bc)  # Number of samples to average over for each (L,n) pair
+        nsamples=$(echo "1024*8192/$L" | bc)  # Number of samples to average over for each (L,n) pair
         
         # Run the tool, capture full stdout, skip plotting/showing to keep it fast
         output=$(python3 run_structure_factor.py -L "$L" -n "$n" --samples $nsamples --qmin 0.015 --qmax 0.15 -c 0.0 --no-plot)
